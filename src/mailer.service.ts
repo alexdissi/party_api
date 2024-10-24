@@ -37,7 +37,7 @@ export class MailerService {
     token: string;
   }) {
     try {
-      const link = `${process.env.FRONTEND_URL}/forgot-password?token=${token}`;
+      const link = `${process.env.APP_URL}/auth/reset-password/${token}`;
       const data = await this.mailer.emails.send({
         from: 'Acme <onboarding@resend.dev>',
         to: [recipient],

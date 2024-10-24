@@ -23,6 +23,9 @@ export class UserService {
                   id: true,
                   name: true,
                   email: true,
+                  profilePictureUrl: true,
+                  role: true,
+                  status: true,
                 }
         });
           return users;

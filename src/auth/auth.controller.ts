@@ -25,14 +25,12 @@ import { LoginUserDto } from './dto/login-user.dto';
   
     @Post('login')
     async login(@Body() authBody: LoginUserDto) {
-      console.log(authBody);
       return await this.authService.login({
         authBody,
       });
     }
     @Post('register')
     async register(@Body() registerBody: CreateUserDto) {
-      console.log({ registerBody });
       return await this.authService.register({
         registerBody,
       });

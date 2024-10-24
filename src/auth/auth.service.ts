@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { compare, hash } from 'bcrypt';
 import { MailerService } from 'src/mailer.service';
@@ -7,6 +7,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { ResetUserPasswordDto } from './dto/reset-user-password.dto';
 import { UserPayload } from './jwt.strategy';
 import { LoginUserDto } from './dto/login-user.dto';
+import { randomBytes } from 'crypto';
+import { ok } from 'assert';
 
 @Injectable()
 export class AuthService {
@@ -26,7 +28,7 @@ export class AuthService {
       });
 
       if (!existingUser) {
-        throw new Error("L'utilisateur n'existe pas.");
+        throw new HttpException("L'utilisateur n'existe pas.", HttpStatus.NOT_FOUND);
       }
 
       const isPasswordValid = await this.isPasswordValid({
@@ -35,19 +37,24 @@ export class AuthService {
       });
 
       if (!isPasswordValid) {
-        throw new Error('Le mot de passe est invalide.');
+        throw new HttpException('Le mot de passe est invalide.', HttpStatus.UNAUTHORIZED);
       }
       return this.authenticateUser({
         userId: existingUser.id,
       });
     } catch (error) {
-      return { error: true, message: error.message };
+      throw new HttpException(error.message, error.status || HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
   async register({ registerBody }: { registerBody: CreateUserDto }) {
-    try {
-      const { email, firstName, password } = registerBody;
+      const { email, firstName,lastName, password,passwordConfirm  } = registerBody;
+      const name = firstName + ' ' + lastName;
+      const profilePictureUrl: string = `https://api.dicebear.com/7.x/initials/svg?seed=${name}`;
+
+      if (password !== passwordConfirm) {
+        throw new HttpException('Les mots de passe ne correspondent pas.', HttpStatus.BAD_REQUEST);
+      }
 
       const existingUser = await this.prisma.user.findUnique({
         where: {
@@ -56,7 +63,7 @@ export class AuthService {
       });
 
       if (existingUser) {
-        throw new Error('Un compte existe déjà à cette adresse email.');
+        throw new HttpException('L\'utilisateur existe déjà.', HttpStatus.BAD_REQUEST);
       }
 
       const hashedPassword = await this.hashPassword({ password });
@@ -65,24 +72,20 @@ export class AuthService {
         data: {
           email,
           password: hashedPassword,
-          name: firstName,
+          name,
+          profilePictureUrl,
+          createdAt: new Date(),
         },
       });
 
       await this.mailerService.sendCreatedAccountEmail({
-        firstName,
+        firstName: name,
         recipient: email,
       });
 
       return this.authenticateUser({
         userId: createdUser.id,
       });
-    } catch (error) {
-      return {
-        error: true,
-        message: error.message,
-      };
-    }
   }
 
   private async hashPassword({ password }: { password: string }) {
@@ -108,7 +111,6 @@ export class AuthService {
   }
 
   async resetUserPasswordRequest({ email }: { email: string }) {
-    try {
       const existingUser = await this.prisma.user.findUnique({
         where: {
           email,
@@ -116,16 +118,17 @@ export class AuthService {
       });
 
       if (!existingUser) {
-        throw new Error("L'utilisateur n'existe pas.");
+        throw new HttpException("L'utilisateur n'existe pas.", HttpStatus.NOT_FOUND);
       }
 
       if (existingUser.isResettingPassword === true) {
-        throw new Error(
-          'Une demande de réinitialisation de mot de passe est déjà en cours.',
+        throw new HttpException(
+          "Une demande de réinitialisation de mot de passe est déjà en cours.",
+          HttpStatus.BAD_REQUEST,
         );
       }
 
-      const createdId = Math.random().toString(36).substring(2, 15);
+      const createdId = randomBytes(32).toString('hex');
       await this.prisma.user.update({
         where: {
           email,
@@ -141,48 +144,47 @@ export class AuthService {
         token: createdId,
       });
 
+      console.log("Email envoyée");
+      
+
       return {
         error: false,
         message:
           'Veuillez consulter vos emails pour réinitialiser votre mot de passe.',
       };
-      // return this.authenticateUser({
-      //   userId: existingUser.id,
-      // });
-    } catch (error) {
-      return { error: true, message: error.message };
-    }
   }
 
   async verifyResetPasswordToken({ token }: { token: string }) {
-    try {
-      const existingUser = await this.prisma.user.findUnique({
-        where: {
-          resetPasswordToken: token,
-        },
-      });
-
-      if (!existingUser) {
-        throw new Error("L'utilisateur n'existe pas.");
-      }
-
-      if (existingUser.isResettingPassword === false) {
-        throw new Error(
-          "Aucune demande de réinitialisation de mot de passe n'est en cours.",
-        );
-      }
-
-      return {
-        error: false,
-        message: 'Le token est valide et peut être utilisé.',
-      };
-      // return this.authenticateUser({
-      //   userId: existingUser.id,
-      // });
-    } catch (error) {
-      return { error: true, message: error.message };
+    // Chercher l'utilisateur avec le token de réinitialisation
+    const existingUser = await this.prisma.user.findUnique({
+      where: {
+        resetPasswordToken: token,
+      },
+    });
+  
+    // Vérifier si l'utilisateur existe
+    if (!existingUser) {
+      throw new HttpException({
+        status: HttpStatus.NOT_FOUND,
+        error: 'Le token de réinitialisation est incorrect',
+      }, HttpStatus.NOT_FOUND);
     }
+  
+    // Vérifier si une demande de réinitialisation est en cours
+    if (existingUser.isResettingPassword === false) {
+      throw new HttpException({
+        status: HttpStatus.BAD_REQUEST,
+        error: "Aucune demande de réinitialisation de mot de passe n'est en cours.",
+      }, HttpStatus.BAD_REQUEST);
+    }
+  
+    // Réinitialisation réussie, retourner un message de succès
+    return {
+      status: HttpStatus.OK,
+      message: 'Le token de réinitialisation est valide.',
+    };
   }
+  
 
   async resetUserPassword({
     resetPasswordDto,
@@ -217,6 +219,7 @@ export class AuthService {
         data: {
           isResettingPassword: false,
           password: hashedPassword,
+          dateResetPassword: new Date(),
         },
       });
 
@@ -224,9 +227,6 @@ export class AuthService {
         error: false,
         message: 'Votre mot de passe a bien été changé.',
       };
-      // return this.authenticateUser({
-      //   userId: existingUser.id,
-      // });
     } catch (error) {
       return { error: true, message: error.message };
     }
