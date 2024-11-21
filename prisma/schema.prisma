@@ -7,36 +7,188 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum UserRoles {
-  USER
-  ADMIN
+model City {
+  id     String  @id @default(cuid())
+  name   String
+  region String
+  users  User[]
+  events Event[]
 }
 
-enum UserPlan {
-  FREE
-  PREMIUM
-  ULTIMATE
+model UserType {
+  id   String @id @default(cuid())
+  type String
 }
 
-enum Status {
-  ACTIVE
-  INACTIVE
-  BLOQUED
-  DISABLED
+model EventType {
+  id     String  @id @default(cuid())
+  type   String
+  events Event[]
+}
+
+model InterestType {
+  id            String         @id @default(cuid())
+  type          String
+  userInterests UserInterest[]
 }
 
 model User {
-  id                  String    @id @default(cuid())
-  email               String    @unique
-  name                String?
-  password            String
-  createdAt           DateTime  @default(now())
-  profilePictureUrl   String?
-  role                UserRoles @default(USER)
-  status              Status    @default(ACTIVE)
-  isResettingPassword Boolean   @default(false)
-  dateResetPassword   DateTime?
-  resetPasswordToken  String?   @unique
-  stripeCustomerId    String?
-  stripeUserPlan      UserPlan  @default(FREE)
+  id                   String              @id @default(cuid())
+  email                String              @unique
+  name                 String?             @unique @db.VarChar(255)
+  password             String
+  createdAt            DateTime            @default(now())
+  profilePictureUrl    String?
+  isResettingPassword  Boolean             @default(false)
+  dateResetPassword    DateTime?
+  resetPasswordToken   String?             @unique
+  cityId               String?
+  city                 City?               @relation(fields: [cityId], references: [id])
+  age                  Int
+  rating               Decimal?
+  updatedAt            DateTime            @updatedAt
+  interests            UserInterest[]
+  organizedEvents      Event[]             @relation("EventOrganizer")
+  participations       EventParticipant[]
+  contributions        EventContribution[]
+  sentMessages         EventMessage[]
+  givenUserReviews     UserReview[]        @relation("ReviewerToUser")
+  receivedUserReviews  UserReview[]        @relation("ReviewedUser")
+  givenEventReviews    EventReview[]       @relation("ReviewerToEvent")
+  receivedEventReviews EventReview[]       @relation("ReviewedUserInEvent")
+
+  @@index([name])
+}
+
+model UserInterest {
+  user           User         @relation(fields: [userId], references: [id])
+  userId         String
+  interestType   InterestType @relation(fields: [interestTypeId], references: [id])
+  interestTypeId String
+
+  @@id([userId, interestTypeId])
+}
+
+model Event {
+  id              String               @id @default(cuid())
+  organizer       User                 @relation("EventOrganizer", fields: [organizerId], references: [id])
+  organizerId     String
+  eventType       EventType            @relation(fields: [eventTypeId], references: [id])
+  eventTypeId     String
+  cityId          String
+  city            City                 @relation(fields: [cityId], references: [id])
+  name            String
+  address         String
+  dateTime        DateTime
+  maxParticipants Int
+  isPaid          Boolean
+  price           Decimal?
+  description     String
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  deletedAt       DateTime?
+  boardGameEvent  BoardGameEvent?
+  videoGameEvent  VideoGameEvent?
+  eventGames      EventGame[]
+  participants    EventParticipant[]
+  requestedItems  EventRequestedItem[]
+  contributions   EventContribution[]
+  messages        EventMessage[]
+  reviews         EventReview[]
+
+  @@index([name])
+}
+
+model BoardGameEvent {
+  event            Event   @relation(fields: [eventId], references: [id])
+  eventId          String  @id
+  allowsGuestGames Boolean
+}
+
+model VideoGameEvent {
+  event                   Event   @relation(fields: [eventId], references: [id])
+  eventId                 String  @id
+  platform                String
+  requiresEquipment       Boolean
+  availableEquipmentCount Int
+}
+
+model EventGame {
+  id                String  @id @default(cuid())
+  event             Event   @relation(fields: [eventId], references: [id])
+  eventId           String
+  name              String
+  minPlayers        Int
+  maxPlayers        Int
+  isGuestSuggestion Boolean
+  votes             Int
+}
+
+model EventParticipant {
+  event         Event    @relation(fields: [eventId], references: [id])
+  eventId       String
+  user          User     @relation(fields: [userId], references: [id])
+  userId        String
+  status        String
+  paymentStatus String?
+  createdAt     DateTime @default(now())
+
+  @@id([eventId, userId])
+}
+
+model EventRequestedItem {
+  id            String              @id @default(cuid())
+  event         Event               @relation(fields: [eventId], references: [id])
+  eventId       String
+  itemName      String
+  quantity      Int
+  description   String
+  contributions EventContribution[]
+}
+
+model EventContribution {
+  id              String             @id @default(cuid())
+  event           Event              @relation(fields: [eventId], references: [id])
+  eventId         String
+  user            User               @relation(fields: [userId], references: [id])
+  userId          String
+  requestedItem   EventRequestedItem @relation(fields: [requestedItemId], references: [id])
+  requestedItemId String
+  itemName        String
+  quantity        Int
+  status          String
+}
+
+model UserReview {
+  id             String   @id @default(cuid())
+  reviewer       User     @relation("ReviewerToUser", fields: [reviewerId], references: [id])
+  reviewerId     String
+  reviewedUser   User     @relation("ReviewedUser", fields: [reviewedUserId], references: [id])
+  reviewedUserId String
+  rating         Int
+  comment        String
+  createdAt      DateTime @default(now())
+}
+
+model EventReview {
+  id             String   @id @default(cuid())
+  event          Event    @relation(fields: [eventId], references: [id])
+  eventId        String
+  reviewer       User     @relation("ReviewerToEvent", fields: [reviewerId], references: [id])
+  reviewerId     String
+  reviewedUser   User     @relation("ReviewedUserInEvent", fields: [reviewedUserId], references: [id])
+  reviewedUserId String
+  rating         Int
+  comment        String
+  createdAt      DateTime @default(now())
+}
+
+model EventMessage {
+  id        String   @id @default(cuid())
+  event     Event    @relation(fields: [eventId], references: [id])
+  eventId   String
+  sender    User     @relation(fields: [senderId], references: [id])
+  senderId  String
+  message   String
+  createdAt DateTime @default(now())
 }
