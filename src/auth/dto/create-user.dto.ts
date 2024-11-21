@@ -42,4 +42,10 @@ export class CreateUserDto {
   @MinLength(1, { message: 'Le nom de famille ne peut pas être vide.' })
   @MaxLength(32, { message: 'Le nom de famille ne peut pas dépasser 32 caractères.' })
   lastName: string;
+
+  @IsNotEmpty({ message: 'Vous devez fournir un âge.' })
+  @IsString({ message: 'L\'âge doit être une chaîne de caractères.' })
+  @MinLength(1, { message: 'L\'âge ne peut pas être vide.' })
+  @MaxLength(3, { message: 'L\'âge ne peut pas dépasser 3 caractères.' })
+  age: string;
 }

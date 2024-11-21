@@ -41,7 +41,7 @@ export class AuthService {
   }
 
   async register({ registerBody }: { registerBody: CreateUserDto }) {
-    const { email, firstName, lastName, password, passwordConfirm } = registerBody;
+    const { email, firstName, lastName, password, passwordConfirm, age } = registerBody;
     const name = `${firstName} ${lastName}`;
     const profilePictureUrl: string = `https://api.dicebear.com/7.x/initials/svg?seed=${name}`;
 
@@ -66,6 +66,7 @@ export class AuthService {
         name,
         profilePictureUrl,
         createdAt: new Date(),
+        age: parseInt(age),
       },
     });
 
