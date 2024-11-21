@@ -1,5 +1,4 @@
-import { Injectable } from '@nestjs/common';
-
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { EventsRepository } from './events.repository';
@@ -17,14 +16,32 @@ export class EventsService {
   }
 
   async findById(id: string) {
-    return this.eventsRepository.findById(id);
+    const event = await this.eventsRepository.findById(id);
+
+    if (!event) {
+      throw new NotFoundException(`Event with ID ${id} not found`);
+    }
+
+    return event;
   }
 
-  async update(id: string, updateEventDto: UpdateEventDto) {
+  async updateEvent(id: string, updateEventDto: UpdateEventDto, userId: string) {
+    const event = await this.findById(id); 
+
+    if (event.organizer.id !== userId) {
+      throw new ForbiddenException('You are not allowed to update this event');
+    }
+
     return this.eventsRepository.update(id, updateEventDto);
   }
 
-  async delete(id: string) {
+  async delete(id: string, userId: string) {
+    const event = await this.findById(id);
+
+    if (event.organizer.id !== userId) {
+      throw new ForbiddenException('You are not allowed to delete this event');
+    }
+
     return this.eventsRepository.delete(id);
   }
 

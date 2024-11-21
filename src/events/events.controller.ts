@@ -9,7 +9,8 @@ import {
   UseGuards, 
   Query, 
   HttpException, 
-  HttpStatus 
+  HttpStatus, 
+  Req
 } from '@nestjs/common';
 import { EventsService } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -81,9 +82,14 @@ export class EventsController {
   }
 
   @Patch(':id')
-  async updateEvent(@Param('id') id: string, @Body() updateEventDto: UpdateEventDto) {
+  async updateEvent(
+    @Param('id') id: string,
+    @Body() updateEventDto: UpdateEventDto,
+    @Req() req: any,
+  ) {
     try {
-      return await this.eventsService.update(id, updateEventDto);
+      const userId = req.user.userId;
+      return this.eventsService.updateEvent(id, updateEventDto, userId);
     } catch (error) {
       throw new HttpException(
         { message: 'Error updating event', error: error.message },
@@ -93,9 +99,12 @@ export class EventsController {
   }
 
   @Delete(':id')
-  async deleteEvent(@Param('id') id: string) {
+  async deleteEvent(@Param('id') id: string,
+    @Req() req: any,
+) {
     try {
-      await this.eventsService.delete(id);
+      const userId = req.user.userId;
+      await this.eventsService.delete(id, userId);
       return { message: 'Event deleted successfully' };
     } catch (error) {
       throw new HttpException(

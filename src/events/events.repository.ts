@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
-import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
 export class EventsRepository {
@@ -60,6 +60,7 @@ export class EventsRepository {
         description: true,
         organizer: {
           select: {
+            id: true,
             name: true,
           },
         },
@@ -81,7 +82,10 @@ export class EventsRepository {
   async update(id: string, updateEventDto: UpdateEventDto) {
     return this.prisma.event.update({
       where: { id },
-      data: updateEventDto,
+      data: {
+        ...updateEventDto,
+        updatedAt: new Date(),
+      },
     });
   }
 
@@ -91,7 +95,7 @@ export class EventsRepository {
 
   async search(keyword: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
-  
+
     return this.prisma.event.findMany({
       where: {
         OR: [
@@ -115,12 +119,12 @@ export class EventsRepository {
       take: limit,
       include: {
         organizer: true,
-        city: true,      
+        city: true,
         eventType: true,
       },
     });
-  }  
-  
+  }
+
   async findByOrganizer(organizerId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
     return this.prisma.event.findMany({
