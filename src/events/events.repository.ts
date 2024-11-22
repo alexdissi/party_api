@@ -95,7 +95,7 @@ export class EventsRepository {
 
   async search(keyword: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
-
+  
     return this.prisma.event.findMany({
       where: {
         OR: [
@@ -120,7 +120,7 @@ export class EventsRepository {
       include: {
         organizer: true,
         city: true,
-        eventType: true,
+        eventType: true, 
       },
     });
   }
@@ -225,5 +225,4 @@ export class EventsRepository {
         },
       },
     });
-  }
-}
+  }}

@@ -8,9 +8,7 @@ export class PrismaService
 {
   constructor() {
     super({
-      log: [
-        { level: 'query', emit: 'stdout' },  // Log des requêtes SQL
-      ],
+      log: ['query', 'error'],
     });
   }
 

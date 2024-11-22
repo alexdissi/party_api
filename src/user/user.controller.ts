@@ -1,5 +1,6 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Req, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('users')
 export class UserController {
@@ -8,8 +9,14 @@ export class UserController {
     getUsers() {
         return this.userService.getUsers();
     }
-    @Get(':userId')
-    getUser(@Param('userId') userId: string) {
-        return this.userService.getUser({ userId });
+    @UseGuards(AuthGuard('jwt'))
+    @Get('/info')
+    async getUser(@Req() req: any) {
+      if (!req.user || !req.user.userId) {
+        throw new Error("L'utilisateur n'est pas authentifié.");
+      }
+
+      const userId = req.user.userId;
+      return this.userService.getUser({ userId });
     }
 }
